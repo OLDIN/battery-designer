@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Shape } from 'three';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera, Environment } from '@react-three/drei';
@@ -11,12 +11,11 @@ interface Scene3DProps {
   config: PackConfig;
 }
 
-// Battery cell: cylinder with + (red) and - (dark) terminals, can be flipped
+// Battery cell: cylinder with + (red), - (dark) terminals, and fish paper insulation
 const BatteryCell = ({ position, radius, height, color, flipped }: { position: [number, number, number], radius: number, height: number, color: string, flipped: boolean }) => {
   const capHeight = height * 0.03;
   const buttonRadius = radius * 0.35;
   const buttonHeight = height * 0.02;
-  // If flipped, rotate 180° around X so + goes down and - goes up
   const rotation: [number, number, number] = flipped ? [Math.PI, 0, 0] : [0, 0, 0];
   
   return (
@@ -33,7 +32,13 @@ const BatteryCell = ({ position, radius, height, color, flipped }: { position: [
         <meshStandardMaterial color="#ef4444" roughness={0.4} metalness={0.6} />
       </mesh>
       
-      {/* Positive button (the raised nub) */}
+      {/* Fish paper insulation ring (green/grey) on + terminal */}
+      <mesh position={[0, height / 2 + 0.1, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[buttonRadius * 1.1, radius * 0.95, 32]} />
+        <meshStandardMaterial color="#064e3b" roughness={0.5} />
+      </mesh>
+      
+      {/* Positive button */}
       <mesh position={[0, height / 2 + buttonHeight / 2, 0]}>
         <cylinderGeometry args={[buttonRadius, buttonRadius, buttonHeight, 16]} />
         <meshStandardMaterial color="#dc2626" roughness={0.3} metalness={0.7} />
@@ -80,31 +85,30 @@ const Ground = () => (
   </mesh>
 );
 
-// A flat nickel plate covering the bounding box of one P-group of cells
-const NickelPlate = ({ groupCells, yPos, color }: { groupCells: Point[], yPos: number, color: string }) => {
-  const { cx, cz, w, d } = useMemo(() => {
-    if (groupCells.length === 0) return { cx: 0, cz: 0, w: 0, d: 0 };
-    let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
-    groupCells.forEach(c => {
-      minX = Math.min(minX, c.x); maxX = Math.max(maxX, c.x);
-      minZ = Math.min(minZ, c.y); maxZ = Math.max(maxZ, c.y);
-    });
-    return {
-      cx: (minX + maxX) / 2, cz: (minZ + maxZ) / 2,
-      w: (maxX - minX) + 20, d: (maxZ - minZ) + 20
-    };
-  }, [groupCells]);
-
-  if (groupCells.length === 0 || w === 0) return null;
+// A premium-look nickel connection (thick metallic bar)
+const NickelConnection = ({ from, to, yPos, color }: { from: Point, to: Point, yPos: number, color: string }) => {
+  const dx = to.x - from.x;
+  const dz = to.y - from.y;
+  const length = Math.sqrt(dx * dx + dz * dz);
+  const angle = Math.atan2(dz, dx);
+  const cx = (from.x + to.x) / 2;
+  const cz = (from.y + to.y) / 2;
+  
   return (
-    <mesh position={[cx, yPos, cz]}>
-      <boxGeometry args={[w, 1.2, d]} />
-      <meshStandardMaterial color={color} metalness={0.9} roughness={0.15} transparent opacity={0.7} />
+    <mesh position={[cx, yPos, cz]} rotation={[0, -angle, 0]}>
+      <boxGeometry args={[length + 8, 1.2, 10]} />
+      <meshStandardMaterial 
+        color={color} 
+        metalness={0.9} 
+        roughness={0.1} 
+        transparent 
+        opacity={0.8} 
+      />
     </mesh>
   );
 };
 
-// A thin wire/bridge between last cell of one P-group and first of the next
+// A thin series bridge between groups
 const SeriesBridge = ({ from, to, fromY, toY }: { from: Point, to: Point, fromY: number, toY: number }) => {
   const dx = to.x - from.x;
   const dz = to.y - from.y;
@@ -114,74 +118,105 @@ const SeriesBridge = ({ from, to, fromY, toY }: { from: Point, to: Point, fromY:
   const midY = (fromY + toY) / 2;
   const midZ = (from.y + to.y) / 2;
   const angle = Math.atan2(dz, dx);
+  const slant = Math.atan2(dy, Math.sqrt(dx * dx + dz * dz));
+  
   return (
-    <mesh position={[midX, midY, midZ]} rotation={[0, -angle, 0]}>
-      <cylinderGeometry args={[1.5, 1.5, length, 8]} />
+    <mesh position={[midX, midY, midZ]} rotation={[0, -angle, slant]}>
+      <boxGeometry args={[length, 1.5, 6]} />
       <meshStandardMaterial color="#f97316" metalness={0.8} roughness={0.2} />
     </mesh>
   );
 };
 
-// Renders one flat nickel plate per P-group + series bridges between groups
-const NickelStrips = ({ cells, parallel, usedCount, cellHeight }: { cells: Point[], parallel: number, usedCount: number, cellHeight: number }) => {
-  const elements = useMemo(() => {
-    const result: React.ReactNode[] = [];
-    const topY = cellHeight + 1.5;
-    const botY = 1.5;
-
-    const numGroups = Math.ceil(usedCount / parallel);
-
-    for (let g = 0; g < numGroups; g++) {
-      const isFlipped = g % 2 === 1;
-      const plateY = isFlipped ? botY : topY; // plate on + face
-      const groupCells = cells.slice(g * parallel, Math.min((g + 1) * parallel, usedCount));
-
-      // Flat nickel plate covering this P-group
-      result.push(
-        <NickelPlate
-          key={`plate-${g}`}
-          groupCells={groupCells}
-          yPos={plateY}
-          color={isFlipped ? "#93c5fd" : "#fde68a"}
-        />
-      );
-
-      // Series bridge: connect this group's + face to next group's - face
-      if (g + 1 < numGroups) {
-        const nextFlipped = !isFlipped;
-        const lastCell = groupCells[groupCells.length - 1];
-        const firstNextCell = cells[(g + 1) * parallel];
-        if (lastCell && firstNextCell) {
-          const fromY = isFlipped ? botY : topY;
-          const toNextY = nextFlipped ? botY : topY;
-          result.push(
-            <SeriesBridge
-              key={`bridge-${g}`}
-              from={lastCell}
-              to={firstNextCell}
-              fromY={fromY}
-              toY={toNextY}
-            />
-          );
-        }
-      }
-    }
-    return result;
-  }, [cells, parallel, usedCount, cellHeight]);
-
-  return <>{elements}</>;
-};
-
 const Scene3D: React.FC<Scene3DProps> = ({ points, selectedCell, config }) => {
-  const fittedCells = useMemo(() => {
-    return getFittedCells(points, selectedCell, config);
+  const { fittedCells, groupedCells } = useMemo(() => {
+    const rawCells = getFittedCells(points, selectedCell, config);
+    if (rawCells.length === 0) return { fittedCells: [], groupedCells: [] };
+    
+    // Sort all cells to have a stable starting point (top-to-bottom, left-to-right)
+    const available = [...rawCells].sort((a, b) => (a.y - b.y) || (a.x - b.x));
+    const processed: Point[] = [];
+    const groups: Point[][] = [];
+    const pSize = config.parallel;
+    
+    // Spatial Clustering: Seed-and-Expand
+    while (available.length > 0) {
+      const seed = available.shift()!;
+      const group: Point[] = [seed];
+      
+      // Find P-1 nearest unassigned neighbors for this group
+      while (group.length < pSize && available.length > 0) {
+        let bestIdx = 0;
+        let minDist = Infinity;
+        
+        // Use average group center for better compactness
+        const center = {
+          x: group.reduce((sum, c) => sum + c.x, 0) / group.length,
+          y: group.reduce((sum, c) => sum + c.y, 0) / group.length
+        };
+
+        available.forEach((c, idx) => {
+          const d = Math.sqrt(Math.pow(c.x - center.x, 2) + Math.pow(c.y - center.y, 2));
+          if (d < minDist) {
+            minDist = d;
+            bestIdx = idx;
+          }
+        });
+        
+        group.push(available.splice(bestIdx, 1)[0]);
+      }
+      groups.push(group);
+      processed.push(...group);
+    }
+    
+    return { fittedCells: processed, groupedCells: groups };
   }, [points, selectedCell, config]);
 
   const usedCount = config.series * config.parallel;
   const cellHeight = selectedCell?.length || 65;
   const cellRadius = (selectedCell?.diameter || 18) / 2;
 
-  const showStrips = false;
+  const [showStrips, setShowStrips] = useState(true);
+
+  // Group metadata for strips
+  const { seriesConnectionElements } = useMemo(() => {
+    const results: React.ReactNode[] = [];
+    if (groupedCells.length < 2) return { seriesConnectionElements: [] };
+    
+    const topY = cellHeight + 1;
+    const botY = 1;
+
+    for (let g = 0; g < groupedCells.length; g++) {
+      const isFlipped = g % 2 === 1;
+      const group = groupedCells[g];
+
+      // Draw series bridge to NEXT group
+      if (g + 1 < groupedCells.length) {
+        const nextGroup = groupedCells[g+1];
+        const nextFlipped = !isFlipped;
+        
+        // Find TWO CLOSEST cells between these groups for the bridge
+        let bestPair = { c1: group[0], c2: nextGroup[0], dist: Infinity };
+        group.forEach(c1 => {
+          nextGroup.forEach(c2 => {
+            const d = Math.sqrt(Math.pow(c1.x - c2.x, 2) + Math.pow(c1.y - c2.y, 2));
+            if (d < bestPair.dist) bestPair = { c1, c2, dist: d };
+          });
+        });
+
+        results.push(
+          <SeriesBridge
+            key={`bridge-${g}`}
+            from={bestPair.c1}
+            to={bestPair.c2}
+            fromY={isFlipped ? botY : topY}
+            toY={nextFlipped ? botY : topY}
+          />
+        );
+      }
+    }
+    return { seriesConnectionElements: results };
+  }, [groupedCells, cellHeight, selectedCell]);
 
   // Center of all cells for camera positioning
   const center = useMemo(() => {
@@ -207,6 +242,9 @@ const Scene3D: React.FC<Scene3DProps> = ({ points, selectedCell, config }) => {
     return Math.max(maxX - minX, maxY - minY) * 1.2;
   }, [points]);
 
+  // Stable target for OrbitControls
+  const cameraTarget = useMemo(() => [center.x, cellHeight / 2, center.z] as [number, number, number], [center.x, center.z, cellHeight]);
+
   return (
     <div style={{ width: '100%', height: '100%', background: '#0f172a', position: 'relative' }}>
       <Canvas shadows>
@@ -218,9 +256,12 @@ const Scene3D: React.FC<Scene3DProps> = ({ points, selectedCell, config }) => {
         <OrbitControls 
           makeDefault
           enableDamping
-          dampingFactor={0.05}
-          rotateSpeed={0.8}
-          target={[center.x, cellHeight / 2, center.z]}
+          dampingFactor={0.1}
+          rotateSpeed={1.0}
+          panSpeed={0.5}
+          target={cameraTarget}
+          enableZoom={true}
+          enablePan={true}
         />
         
         <ambientLight intensity={0.6} />
@@ -234,38 +275,64 @@ const Scene3D: React.FC<Scene3DProps> = ({ points, selectedCell, config }) => {
         {/* Frame outline on the ground */}
         <FrameOutline points={points} />
         
-        {/* Battery cells — groups of P cells alternate polarity (S1 up, S2 down, ...) */}
-        {fittedCells.map((cell: Point, idx: number) => {
-          const isUsed = idx < usedCount;
-          // Every `parallel` used cells = one S-group
-          const sGroup = isUsed ? Math.floor(idx / config.parallel) : -1;
-          const isFlipped = isUsed && sGroup % 2 === 1;
+        {/* Battery cells — spatially clustered blocks */}
+        {groupedCells.map((group, gIdx) => {
+          const isFlipped = gIdx % 2 === 1;
+          
+          return group.map((cell, cIdx) => {
+            const idx = gIdx * config.parallel + cIdx;
+            const isUsed = idx < usedCount;
+            
+            let cellColor = "#334155"; // unused
+            if (isUsed) {
+              cellColor = isFlipped ? "#3b82f6" : "#10b981";
+            }
 
-          let cellColor = "#334155"; // unused - darker grey
-          if (isUsed) {
-            cellColor = isFlipped ? "#3b82f6" : "#10b981";
-          }
-
-          return (
-            <BatteryCell
-              key={idx}
-              position={[cell.x, cellHeight / 2, cell.y]}
-              radius={cellRadius}
-              height={cellHeight}
-              color={cellColor}
-              flipped={isUsed && isFlipped}
-            />
-          );
+            return (
+              <BatteryCell
+                key={`${gIdx}-${cIdx}`}
+                position={[cell.x, cellHeight / 2, cell.y]}
+                radius={cellRadius}
+                height={cellHeight}
+                color={cellColor}
+                flipped={isUsed && isFlipped}
+              />
+            );
+          });
         })}
 
         {/* Nickel strip connections */}
         {showStrips && (
-          <NickelStrips
-            cells={fittedCells}
-            parallel={config.parallel}
-            usedCount={usedCount}
-            cellHeight={cellHeight}
-          />
+          <>
+            {groupedCells.map((group, g) => {
+              const isFlipped = g % 2 === 1;
+              const plateY = isFlipped ? 1 : cellHeight + 1;
+              const plateColor = isFlipped ? "#94a3b8" : "#cbd5e1";
+              if (g * config.parallel >= usedCount) return null;
+              
+              const maxNeighborDist = (selectedCell?.diameter || 18 + 5) * 1.5;
+              const strips: React.ReactNode[] = [];
+              
+              for (let i = 0; i < group.length; i++) {
+                for (let j = i + 1; j < group.length; j++) {
+                  const d = Math.sqrt(Math.pow(group[i].x - group[j].x, 2) + Math.pow(group[i].y - group[j].y, 2));
+                  if (d < maxNeighborDist) {
+                    strips.push(
+                      <NickelConnection
+                        key={`conn-${g}-${i}-${j}`}
+                        from={group[i]}
+                        to={group[j]}
+                        yPos={plateY}
+                        color={plateColor}
+                      />
+                    );
+                  }
+                }
+              }
+              return strips;
+            })}
+            {seriesConnectionElements}
+          </>
         )}
       </Canvas>
       
@@ -279,7 +346,27 @@ const Scene3D: React.FC<Scene3DProps> = ({ points, selectedCell, config }) => {
         🖱 Drag to Rotate · Scroll to Zoom<br/>
         <span style={{color: '#10b981'}}>●</span> S-group + up &nbsp;
         <span style={{color: '#3b82f6'}}>●</span> S-group + down &nbsp;
-        <span style={{color: '#334155'}}>●</span> Unused ({Math.max(0, fittedCells.length - usedCount)})
+        <span style={{color: '#334155'}}>●</span> Unused ({Math.max(0, fittedCells.length - usedCount)})<br/>
+        <span style={{color: '#cbd5e1', borderBottom: '2px solid #cbd5e1'}}>▬▬</span> Nickel Plate (+ face) &nbsp;
+        <span style={{color: '#f97316', borderBottom: '2px solid #f97316'}}>▬▬</span> Series Bridge
+        <br/>
+        <button 
+          onClick={() => setShowStrips(s => !s)}
+          style={{ 
+            marginTop: '8px', 
+            padding: '6px 12px', 
+            fontSize: '12px', 
+            background: showStrips ? '#3b82f6' : 'rgba(255,255,255,0.1)', 
+            border: 'none', 
+            borderRadius: '6px', 
+            color: 'white', 
+            cursor: 'pointer',
+            transition: 'all 0.2s',
+            fontWeight: 600
+          }}
+        >
+          {showStrips ? '🔌 Hide connections' : '🔌 Show connections'}
+        </button>
       </div>
     </div>
   );
