@@ -1,5 +1,5 @@
 import React from 'react';
-import type { CellModel, PackConfig } from '../types';
+import type { CellModel, PackConfig, ImageTransform } from '../types';
 
 interface SidebarProps {
   cells: CellModel[];
@@ -9,14 +9,12 @@ interface SidebarProps {
   setConfig: React.Dispatch<React.SetStateAction<PackConfig>>;
   maxParallel: number;
   fittedCellsCount: number;
-  calibrationMm: number;
-  setCalibrationMm: (mm: number) => void;
-  pixelsPerMm: number;
+  imageTransform: ImageTransform;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
   cells, selectedCell, setSelectedCellId, config, setConfig,
-  maxParallel, fittedCellsCount, calibrationMm, setCalibrationMm, pixelsPerMm
+  maxParallel, fittedCellsCount, imageTransform
 }) => {
   return (
     <div className="sidebar glass-panel">
@@ -55,15 +53,12 @@ const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       <div className="sidebar-section">
-        <h3>2. Calibration</h3>
-        <div className="form-group">
-          <label>Reference Length (mm)</label>
-          <input 
-            type="number" 
-            value={calibrationMm} 
-            onChange={(e) => setCalibrationMm(Number(e.target.value))} 
-            title="Length of the calibration line on screen"
-          />
+        <h3>2. View Info</h3>
+        <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+          Background scale: {imageTransform.scale.toFixed(2)}x
+        </div>
+        <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+          Grid: 1 square = 10mm
         </div>
       </div>
 
@@ -139,15 +134,17 @@ const Sidebar: React.FC<SidebarProps> = ({
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                name: 'New Battery Pack ' + new Date().toLocaleTimeString(),
+                name: 'New Pack ' + new Date().toLocaleTimeString(),
                 cellModelId: selectedCell?.id,
                 seriesVoltage: config.series,
                 parallelCount: config.parallel,
                 useHolders: config.useHolders,
-                calibrationLengthMm: calibrationMm
+                imageScale: imageTransform.scale,
+                imageOffsetX: imageTransform.offsetX,
+                imageOffsetY: imageTransform.offsetY
               })
             }).then(() => alert('Project saved successfully!'))
-              .catch(e => alert('Failed to save project.'));
+              .catch(() => alert('Failed to save project.'));
           }}
         >
           Save Configuration

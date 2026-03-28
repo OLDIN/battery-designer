@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import './index.css';
 import Sidebar from './components/Sidebar';
 import Workspace from './components/Workspace';
-import type { CellModel, Point, PackConfig } from './types';
+import type { CellModel, Point, PackConfig, ImageTransform } from './types';
 
 function App() {
   const [cells, setCells] = useState<CellModel[]>([]);
@@ -18,7 +18,7 @@ function App() {
   // Calculate maximum parallel cells based on how many cells fit inside polygon
   const [maxParallel, setMaxParallel] = useState<number>(0);
 
-  // Canvas State
+  // Canvas State: 1 unit = 1 mm
   const [points, setPoints] = useState<Point[]>([
     { x: 100, y: 100 },
     { x: 600, y: 100 },
@@ -26,11 +26,12 @@ function App() {
   ]);
   const [bgImage, setBgImage] = useState<string | null>(null);
   
-  // Calibration
-  const [isCalibrating, setIsCalibrating] = useState(false);
-  const [calibrationLine, setCalibrationLine] = useState<[Point, Point] | null>(null);
-  const [calibrationMm, setCalibrationMm] = useState<number>(500);
-  const [pixelsPerMm, setPixelsPerMm] = useState<number>(1); // 1 px = 1 mm default
+  // Image Transformations (Pan & Zoom)
+  const [imageTransform, setImageTransform] = useState<ImageTransform>({
+    scale: 1,
+    offsetX: 0,
+    offsetY: 0
+  });
   
   // Number of cells that physically fit inside the polygon
   const [fittedCellsCount, setFittedCellsCount] = useState<number>(0);
@@ -63,18 +64,6 @@ function App() {
     }
   }, [fittedCellsCount, config.series]);
 
-  // Recalculate calibration ratio when line or mm changes
-  useEffect(() => {
-    if (calibrationLine && calibrationMm > 0) {
-      const dx = calibrationLine[1].x - calibrationLine[0].x;
-      const dy = calibrationLine[1].y - calibrationLine[0].y;
-      const pixelDist = Math.sqrt(dx * dx + dy * dy);
-      setPixelsPerMm(pixelDist / calibrationMm);
-    } else {
-      setPixelsPerMm(1);
-    }
-  }, [calibrationLine, calibrationMm]);
-
   return (
     <div className="layout">
       <Sidebar 
@@ -85,9 +74,7 @@ function App() {
         setConfig={setConfig}
         maxParallel={maxParallel}
         fittedCellsCount={fittedCellsCount}
-        calibrationMm={calibrationMm}
-        setCalibrationMm={setCalibrationMm}
-        pixelsPerMm={pixelsPerMm}
+        imageTransform={imageTransform}
       />
       <Workspace 
         points={points}
@@ -96,12 +83,9 @@ function App() {
         setBgImage={setBgImage}
         selectedCell={selectedCell}
         config={config}
-        pixelsPerMm={pixelsPerMm}
         setFittedCellsCount={setFittedCellsCount}
-        isCalibrating={isCalibrating}
-        setIsCalibrating={setIsCalibrating}
-        calibrationLine={calibrationLine}
-        setCalibrationLine={setCalibrationLine}
+        imageTransform={imageTransform}
+        setImageTransform={setImageTransform}
       />
     </div>
   );

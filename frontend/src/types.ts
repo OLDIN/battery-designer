@@ -20,3 +20,9 @@ export interface PackConfig {
   parallel: number;
   useHolders: boolean;
 }
+
+export interface ImageTransform {
+  scale: number;
+  offsetX: number;
+  offsetY: number;
+}

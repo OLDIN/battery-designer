@@ -16,10 +16,19 @@ export class Project {
   imageBase64: string; // The base64 or URL of the uploaded image
 
   @Column({ nullable: true })
-  calibrationLine: string; // JSON string for scale line coordinates
+  calibrationLine: string; // Deprecated, keeping just in case
 
   @Column({ type: 'float', nullable: true })
   calibrationLengthMm: number;
+
+  @Column({ type: 'float', default: 1 })
+  imageScale: number;
+
+  @Column({ type: 'float', default: 0 })
+  imageOffsetX: number;
+
+  @Column({ type: 'float', default: 0 })
+  imageOffsetY: number;
 
   @Column({ nullable: true })
   cellModelId: number;
