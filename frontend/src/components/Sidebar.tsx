@@ -121,9 +121,21 @@ const Sidebar: React.FC<SidebarProps> = ({
         <hr style={{width: '100%', borderColor: 'rgba(255,255,255,0.1)', margin: '8px 0'}}/>
         
         <div className="result-row">
+          <span>Nominal Voltage</span>
+          <span className="result-value">
+            {(config.series * 3.6).toFixed(1)} V
+          </span>
+        </div>
+        <div className="result-row">
           <span>Total Capacity</span>
           <span className="result-value">
             {selectedCell ? ((selectedCell.capacity * config.parallel) / 1000).toFixed(1) : 0} Ah
+          </span>
+        </div>
+        <div className="result-row">
+          <span>Total Energy</span>
+          <span className="result-value" style={{color: 'var(--accent-color)', fontWeight: 'bold'}}>
+            {selectedCell ? (((selectedCell.capacity * config.parallel) / 1000) * (config.series * 3.6)).toFixed(0) : 0} Wh
           </span>
         </div>
         <div className="result-row">
