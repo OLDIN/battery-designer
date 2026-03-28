@@ -216,8 +216,11 @@ const Scene3D: React.FC<Scene3DProps> = ({ points, selectedCell, config }) => {
           fov={45} 
         />
         <OrbitControls 
-          target={[center.x, cellHeight / 2, center.z]} 
-          maxPolarAngle={Math.PI / 2} 
+          makeDefault
+          enableDamping
+          dampingFactor={0.05}
+          rotateSpeed={0.8}
+          target={[center.x, cellHeight / 2, center.z]}
         />
         
         <ambientLight intensity={0.6} />
