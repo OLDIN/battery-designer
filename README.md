@@ -1,5 +1,6 @@
 # 🔋 E-Bike Battery Designer
 
+![App Screenshot](./docs/screenshot.png)
 A complete web-based tool for designing custom E-Bike battery packs. This application allows you to visually plan the layout of battery cells within custom geometric shapes (like a bicycle frame triangle), calculating optimal placement using a honeycomb cell packing algorithm.
 
 ## ✨ Features
