@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Shape } from 'three';
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls, PerspectiveCamera, Environment } from '@react-three/drei';
+import { OrbitControls, PerspectiveCamera, Environment, Html } from '@react-three/drei';
 import type { CellModel, Point, PackConfig } from '../types';
 import { getFittedCells } from '../utils/fitting';
 
@@ -169,7 +169,45 @@ const Scene3D: React.FC<Scene3DProps> = ({ points, selectedCell, config }) => {
       processed.push(...group);
     }
     
-    return { fittedCells: processed, groupedCells: groups };
+    // 2. Sequence Groups (Greedy Pathfinding S1 -> S2 -> ...)
+    // This ensures that S-groups are ordered by physical proximity
+    const sequencedGroups: Point[][] = [];
+    if (groups.length > 0) {
+      // Start with the group containing the top-most cell (already sorted available[0])
+      let currentIdx = 0;
+      const unsequenced = [...groups];
+      sequencedGroups.push(unsequenced.splice(currentIdx, 1)[0]);
+      
+      while (unsequenced.length > 0) {
+        const lastGroup = sequencedGroups[sequencedGroups.length - 1];
+        const lastCenter = {
+          x: lastGroup.reduce((sum, c) => sum + c.x, 0) / lastGroup.length,
+          y: lastGroup.reduce((sum, c) => sum + c.y, 0) / lastGroup.length
+        };
+        
+        let bestIdx = 0;
+        let minDist = Infinity;
+        
+        unsequenced.forEach((g, idx) => {
+          const gCenter = {
+            x: g.reduce((sum, c) => sum + c.x, 0) / g.length,
+            y: g.reduce((sum, c) => sum + c.y, 0) / g.length
+          };
+          const d = Math.sqrt(Math.pow(gCenter.x - lastCenter.x, 2) + Math.pow(gCenter.y - lastCenter.y, 2));
+          if (d < minDist) {
+            minDist = d;
+            bestIdx = idx;
+          }
+        });
+        
+        sequencedGroups.push(unsequenced.splice(bestIdx, 1)[0]);
+      }
+    }
+    
+    // Flatten for traditional "fittedCells" usage while keeping sequenced order
+    const finalProcessedCells = sequencedGroups.flat();
+    
+    return { fittedCells: finalProcessedCells, groupedCells: sequencedGroups };
   }, [points, selectedCell, config]);
 
   const usedCount = config.series * config.parallel;
@@ -189,13 +227,13 @@ const Scene3D: React.FC<Scene3DProps> = ({ points, selectedCell, config }) => {
     for (let g = 0; g < groupedCells.length; g++) {
       const isFlipped = g % 2 === 1;
       const group = groupedCells[g];
+      const nextGroup = groupedCells[g+1];
+      const nextFlipped = !isFlipped;
+      
+      const negSideY = isFlipped ? topY : botY;
 
-      // Draw series bridge to NEXT group
-      if (g + 1 < groupedCells.length) {
-        const nextGroup = groupedCells[g+1];
-        const nextFlipped = !isFlipped;
-        
-        // Find TWO CLOSEST cells between these groups for the bridge
+      // Draw series bridge to NEXT group (NEG of current to POS of next)
+      if (nextGroup) {
         let bestPair = { c1: group[0], c2: nextGroup[0], dist: Infinity };
         group.forEach(c1 => {
           nextGroup.forEach(c2 => {
@@ -209,8 +247,8 @@ const Scene3D: React.FC<Scene3DProps> = ({ points, selectedCell, config }) => {
             key={`bridge-${g}`}
             from={bestPair.c1}
             to={bestPair.c2}
-            fromY={isFlipped ? botY : topY}
-            toY={nextFlipped ? botY : topY}
+            fromY={negSideY} // from Negative terminal
+            toY={nextFlipped ? botY : topY} // to Next Positive terminal
           />
         );
       }
@@ -306,30 +344,70 @@ const Scene3D: React.FC<Scene3DProps> = ({ points, selectedCell, config }) => {
           <>
             {groupedCells.map((group, g) => {
               const isFlipped = g % 2 === 1;
-              const plateY = isFlipped ? 1 : cellHeight + 1;
-              const plateColor = isFlipped ? "#94a3b8" : "#cbd5e1";
+              const posSideY = isFlipped ? 1 : cellHeight + 1;
+              const negSideY = isFlipped ? cellHeight + 1 : 1;
+              
               if (g * config.parallel >= usedCount) return null;
               
+              const avgX = group.reduce((sum, c) => sum + c.x, 0) / group.length;
+              const avgZ = group.reduce((sum, c) => sum + c.y, 0) / group.length;
+
               const maxNeighborDist = (selectedCell?.diameter || 18 + 5) * 1.5;
-              const strips: React.ReactNode[] = [];
+              const posStrips: React.ReactNode[] = [];
+              const negStrips: React.ReactNode[] = [];
               
               for (let i = 0; i < group.length; i++) {
                 for (let j = i + 1; j < group.length; j++) {
                   const d = Math.sqrt(Math.pow(group[i].x - group[j].x, 2) + Math.pow(group[i].y - group[j].y, 2));
                   if (d < maxNeighborDist) {
-                    strips.push(
+                    // Positive side (plus) strips
+                    posStrips.push(
                       <NickelConnection
-                        key={`conn-${g}-${i}-${j}`}
-                        from={group[i]}
-                        to={group[j]}
-                        yPos={plateY}
-                        color={plateColor}
+                        key={`pos-conn-${g}-${i}-${j}`}
+                        from={group[i]} to={group[j]}
+                        yPos={posSideY}
+                        color="#cbd5e1"
+                      />
+                    );
+                    // Negative side (minus) strips
+                    negStrips.push(
+                      <NickelConnection
+                        key={`neg-conn-${g}-${i}-${j}`}
+                        from={group[i]} to={group[j]}
+                        yPos={negSideY}
+                        color="#64748b" // darker nickel
                       />
                     );
                   }
                 }
               }
-              return strips;
+              
+              return (
+                <group key={`group-elements-${g}`}>
+                   {posStrips}
+                   {negStrips}
+                   {/* S-group Identification Labels */}
+                   <Html
+                     position={[avgX, cellHeight + 15, avgZ]}
+                     center
+                     distanceFactor={400}
+                   >
+                     <div style={{ 
+                       background: 'rgba(15, 23, 42, 0.8)', 
+                       color: 'white', 
+                       padding: '2px 6px', 
+                       borderRadius: '4px', 
+                       fontSize: '11px',
+                       fontWeight: 600,
+                       border: `1px solid ${isFlipped ? '#3b82f6' : '#10b981'}`,
+                       pointerEvents: 'none',
+                       whiteSpace: 'nowrap'
+                     }}>
+                       S{g + 1}
+                     </div>
+                   </Html>
+                </group>
+              );
             })}
             {seriesConnectionElements}
           </>
