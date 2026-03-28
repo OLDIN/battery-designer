@@ -11,6 +11,7 @@ function App() {
   
   const [projectName, setProjectName] = useState<string>('My Battery Pack');
   const [activeProjectId, setActiveProjectId] = useState<number | null>(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
   
   // Pack Configuration
   const [config, setConfig] = useState<PackConfig>({
@@ -161,6 +162,7 @@ function App() {
   return (
     <div className="layout">
       <Sidebar 
+        isSidebarOpen={isSidebarOpen}
         cells={cells}
         selectedCell={selectedCell}
         setSelectedCellId={setSelectedCellId}
@@ -180,6 +182,8 @@ function App() {
         onDeleteProject={handleDeleteProject}
       />
       <Workspace 
+        isSidebarOpen={isSidebarOpen}
+        setIsSidebarOpen={setIsSidebarOpen}
         points={points}
         setPoints={setPoints}
         bgImage={bgImage}

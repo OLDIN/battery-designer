@@ -12,11 +12,14 @@ interface WorkspaceProps {
   setFittedCellsCount: React.Dispatch<React.SetStateAction<number>>;
   imageTransform: ImageTransform;
   setImageTransform: React.Dispatch<React.SetStateAction<ImageTransform>>;
+  isSidebarOpen: boolean;
+  setIsSidebarOpen: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 const Workspace: React.FC<WorkspaceProps> = ({
   points, setPoints, bgImage, setBgImage, selectedCell, config,
-  setFittedCellsCount, imageTransform, setImageTransform
+  setFittedCellsCount, imageTransform, setImageTransform,
+  isSidebarOpen, setIsSidebarOpen
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   
@@ -229,6 +232,13 @@ const Workspace: React.FC<WorkspaceProps> = ({
     <div className="canvas-container" ref={containerRef} onWheel={handleWheel} onPointerDown={handleContainerPointerDown} style={{cursor: isPanning ? 'grabbing' : 'default'}}>
       <div className="canvas-toolbar">
         <div className="toolbar-group">
+          <button 
+            className="glass-panel" 
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', padding: 0 }}
+          >
+            ☰
+          </button>
           <label className="glass-panel" style={{padding: '6px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center'}}>
             <input type="file" accept="image/*" onChange={handleImageUpload} style={{display:'none'}} />
             Upload Photo

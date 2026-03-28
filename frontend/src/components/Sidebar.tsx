@@ -19,18 +19,20 @@ interface SidebarProps {
   onUpdateCurrent: () => void;
   onLoadProject: (id: number) => void;
   onDeleteProject: (id: number) => void;
+  isSidebarOpen: boolean;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
   cells, selectedCell, setSelectedCellId, config, setConfig,
   maxParallel, fittedCellsCount, imageTransform,
   savedProjects, projectName, setProjectName, activeProjectId, 
-  onSaveAsNew, onUpdateCurrent, onLoadProject, onDeleteProject
+  onSaveAsNew, onUpdateCurrent, onLoadProject, onDeleteProject,
+  isSidebarOpen
 }) => {
   const [selectedLoadId, setSelectedLoadId] = useState<string>('');
 
   return (
-    <div className="sidebar glass-panel">
+    <div className={`sidebar glass-panel ${!isSidebarOpen ? 'collapsed' : ''}`}>
       <h2>Battery Designer</h2>
       
       <div className="sidebar-section">
