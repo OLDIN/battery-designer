@@ -12,7 +12,7 @@ export class Project {
   @Column({ type: 'text', nullable: true })
   polygonPoints: string; 
 
-  @Column({ nullable: true })
+  @Column({ type: 'text', nullable: true })
   imageBase64: string; // The base64 or URL of the uploaded image
 
   @Column({ nullable: true })
