@@ -111,6 +111,21 @@ const Sidebar: React.FC<SidebarProps> = ({
             <span>Max: {maxParallel}P</span>
           </div>
         </div>
+
+        <div className="form-group mt-3">
+          <label>Case Thickness (Padding): {config.caseThickness}mm</label>
+          <input 
+            type="range" 
+            min={0} 
+            max={20} 
+            step={1}
+            value={config.caseThickness} 
+            onChange={(e) => setConfig({ ...config, caseThickness: Number(e.target.value) })}
+          />
+          <div style={{fontSize: '11px', color: 'var(--text-muted)'}}>
+            Z-zone from frame edges for bag/housing.
+          </div>
+        </div>
       </div>
 
       <div className="results-panel" style={{marginBottom: '20px'}}>
@@ -255,6 +270,37 @@ const Sidebar: React.FC<SidebarProps> = ({
           </div>
         </div>
       )}
+
+      <div className="sidebar-section checklist-section" style={{marginTop: '20px', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '20px'}}>
+        <h3 style={{color: 'var(--accent-color)'}}>🚀 Build Checklist</h3>
+        <p style={{fontSize: '11px', color: 'var(--text-muted)', marginBottom: '10px'}}>Don't forget to leave space for:</p>
+        
+        <div className="checklist-item">
+          <label style={{display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', cursor: 'pointer', marginBottom: '6px'}}>
+            <input type="checkbox" /> BMS (100x60x15mm)
+          </label>
+        </div>
+        <div className="checklist-item">
+          <label style={{display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', cursor: 'pointer', marginBottom: '6px'}}>
+            <input type="checkbox" /> Main Wires (10-12AWG)
+          </label>
+        </div>
+        <div className="checklist-item">
+          <label style={{display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', cursor: 'pointer', marginBottom: '6px'}}>
+            <input type="checkbox" /> Discharge Fuse
+          </label>
+        </div>
+        <div className="checklist-item">
+          <label style={{display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', cursor: 'pointer', marginBottom: '6px'}}>
+            <input type="checkbox" /> Charge Port (DC/XT)
+          </label>
+        </div>
+        <div className="checklist-item">
+          <label style={{display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', cursor: 'pointer', marginBottom: '6px'}}>
+            <input type="checkbox" /> Fish Paper Insulation
+          </label>
+        </div>
+      </div>
     </div>
   );
 };

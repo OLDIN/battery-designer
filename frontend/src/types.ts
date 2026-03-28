@@ -19,6 +19,7 @@ export interface PackConfig {
   series: number;
   parallel: number;
   useHolders: boolean;
+  caseThickness: number;
 }
 
 export interface ImageTransform {

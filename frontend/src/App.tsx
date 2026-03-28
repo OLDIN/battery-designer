@@ -25,7 +25,8 @@ function App() {
   const [config, setConfig] = useState<PackConfig>({
     series: 13,
     parallel: 1,
-    useHolders: true
+    useHolders: true,
+    caseThickness: 5
   });
 
   const [maxParallel, setMaxParallel] = useState<number>(0);
@@ -96,6 +97,7 @@ function App() {
     imageOffsetY: imageTransform.offsetY,
     cellModelId: selectedCellId,
     useHolders: config.useHolders,
+    caseThickness: config.caseThickness,
     seriesVoltage: config.series,
     parallelCount: config.parallel
   });
@@ -206,7 +208,8 @@ function App() {
     setConfig({
       series: data.seriesVoltage || 13,
       parallel: data.parallelCount || 1,
-      useHolders: !!data.useHolders
+      useHolders: !!data.useHolders,
+      caseThickness: data.caseThickness || 5
     });
     setProjectName(data.name || 'Imported pack');
     setActiveProjectId(data.id || null);

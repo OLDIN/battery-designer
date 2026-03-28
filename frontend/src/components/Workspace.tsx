@@ -197,7 +197,7 @@ const Workspace: React.FC<WorkspaceProps> = ({
     const gapMm = config.useHolders ? 1.5 : 0.5;
     const cellDiameter = selectedCell.diameter + gapMm;
     const radius = selectedCell.diameter / 2;
-    const padding = gapMm / 2;
+    const padding = (gapMm / 2) + config.caseThickness;
     const outerRadius = radius + padding;
     
     const colStep = cellDiameter;
@@ -216,7 +216,7 @@ const Workspace: React.FC<WorkspaceProps> = ({
       rowIdx++;
     }
     return result;
-  }, [points, selectedCell, config.useHolders]);
+  }, [points, selectedCell, config.useHolders, config.caseThickness]);
 
   useEffect(() => {
     setFittedCellsCount(fittedCells.length);
@@ -290,6 +290,26 @@ const Workspace: React.FC<WorkspaceProps> = ({
               transform={`translate(${imageTransform.offsetX}, ${imageTransform.offsetY}) scale(${imageTransform.scale})`}
               pointerEvents="none"
               style={{ transition: 'opacity 0.2s' }}
+            />
+          )}
+
+          <defs>
+            <clipPath id="polygonClip">
+              <path d={polygonPath} />
+            </clipPath>
+          </defs>
+
+          {/* Case Thickness Zone (Internal Padding) */}
+          {config.caseThickness > 0 && (
+            <path 
+              d={polygonPath} 
+              clipPath="url(#polygonClip)" 
+              fill="none" 
+              stroke="rgba(255, 255, 255, 0.15)" 
+              strokeWidth={config.caseThickness * 2} 
+              strokeDasharray="4 4"
+              pointerEvents="none"
+              style={{ transition: 'stroke-width 0.1s' }}
             />
           )}
 
