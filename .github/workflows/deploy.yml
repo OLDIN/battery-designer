@@ -29,11 +29,11 @@ jobs:
           npm install
 
       - name: Build
-        environment:
+        env:
           VITE_STANDALONE: true
         run: |
           cd frontend
-          VITE_STANDALONE=true npm run build
+          npm run build
 
       - name: Deploy
         uses: JamesIves/github-pages-deploy-action@v4
