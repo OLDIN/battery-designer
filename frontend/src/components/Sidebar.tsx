@@ -18,13 +18,14 @@ interface SidebarProps {
   onSaveAsNew: () => void;
   onUpdateCurrent: () => void;
   onLoadProject: (id: number) => void;
+  onDeleteProject: (id: number) => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
   cells, selectedCell, setSelectedCellId, config, setConfig,
   maxParallel, fittedCellsCount, imageTransform,
   savedProjects, projectName, setProjectName, activeProjectId, 
-  onSaveAsNew, onUpdateCurrent, onLoadProject
+  onSaveAsNew, onUpdateCurrent, onLoadProject, onDeleteProject
 }) => {
   const [selectedLoadId, setSelectedLoadId] = useState<string>('');
 
@@ -206,6 +207,18 @@ const Sidebar: React.FC<SidebarProps> = ({
               style={{ padding: '8px 12px' }}
             >
               Load
+            </button>
+            <button 
+              disabled={!selectedLoadId}
+              onClick={() => {
+                if (window.confirm('Are you sure you want to delete this project?')) {
+                  onDeleteProject(Number(selectedLoadId));
+                  setSelectedLoadId('');
+                }
+              }}
+              style={{ padding: '8px 12px', background: 'rgba(239, 68, 68, 0.4)', border: '1px solid #ef4444' }}
+            >
+              Delete
             </button>
           </div>
         </div>

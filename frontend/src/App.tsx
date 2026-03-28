@@ -142,6 +142,22 @@ function App() {
     }
   };
 
+  const handleDeleteProject = async (id: number) => {
+    try {
+      await fetch(`http://localhost:3000/projects/${id}`, {
+        method: 'DELETE'
+      });
+      alert('Project deleted.');
+      if (activeProjectId === id) {
+        setActiveProjectId(null);
+        setProjectName('My Battery Pack');
+      }
+      fetchData();
+    } catch (e) {
+      alert('Failed to delete project.');
+    }
+  };
+
   return (
     <div className="layout">
       <Sidebar 
@@ -161,6 +177,7 @@ function App() {
         onSaveAsNew={handleSaveAsNew}
         onUpdateCurrent={handleUpdateCurrent}
         onLoadProject={handleLoadProject}
+        onDeleteProject={handleDeleteProject}
       />
       <Workspace 
         points={points}
