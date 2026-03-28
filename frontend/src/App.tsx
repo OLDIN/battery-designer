@@ -1,18 +1,25 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import './index.css';
 import Sidebar from './components/Sidebar';
 import Workspace from './components/Workspace';
 import type { CellModel, Point, PackConfig, ImageTransform, ProjectData } from './types';
+import { FALLBACK_CELLS } from './data/fallbackCells';
 
 function App() {
-  const [cells, setCells] = useState<CellModel[]>([]);
-  const [selectedCellId, setSelectedCellId] = useState<number | null>(null);
+  const [cells, setCells] = useState<CellModel[]>(FALLBACK_CELLS);
+  const [selectedCellId, setSelectedCellId] = useState<number | null>(FALLBACK_CELLS[0].id);
   const [savedProjects, setSavedProjects] = useState<ProjectData[]>([]);
   
   const [projectName, setProjectName] = useState<string>('My Battery Pack');
   const [activeProjectId, setActiveProjectId] = useState<number | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
   
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Read environment variable (Vite style)
+  const isStandalone = import.meta.env.VITE_STANDALONE === 'true';
+  const backendUrl = 'http://localhost:3000';
+
   // Pack Configuration
   const [config, setConfig] = useState<PackConfig>({
     series: 13,
@@ -41,20 +48,24 @@ function App() {
 
   // Initial Fetch data
   const fetchData = () => {
-    fetch('http://localhost:3000/cells')
+    if (isStandalone) return;
+
+    fetch(`${backendUrl}/cells`)
       .then(res => res.json())
       .then(data => {
-        setCells(data);
-        if (data.length > 0 && selectedCellId === null) {
+        if (data && data.length > 0) {
+          setCells(data);
           setSelectedCellId(data[0].id);
         }
       })
-      .catch(err => console.error('Error fetching cells:', err));
+      .catch(err => {
+        console.warn('Backend cells unavailable, using fallback:', err);
+      });
       
-    fetch('http://localhost:3000/projects')
+    fetch(`${backendUrl}/projects`)
       .then(res => res.json())
       .then(data => setSavedProjects(data))
-      .catch(err => console.error('Error fetching projects:', err));
+      .catch(err => console.warn('Backend projects unavailable:', err));
   };
 
   useEffect(() => {
@@ -88,9 +99,10 @@ function App() {
     parallelCount: config.parallel
   });
 
+  // --- DB Handlers ---
   const handleSaveAsNew = async () => {
     try {
-      const res = await fetch('http://localhost:3000/projects', {
+      const res = await fetch(`${backendUrl}/projects`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(getProjectPayload(projectName))
@@ -98,22 +110,22 @@ function App() {
       const newProj = await res.json();
       setActiveProjectId(newProj.id);
       alert('Project saved as new successfully!');
-      fetchData(); // refresh list
+      fetchData();
     } catch (e) {
-      alert('Failed to save project.');
+      alert('Failed to save project to database.');
     }
   };
 
   const handleUpdateCurrent = async () => {
     if (!activeProjectId) return;
     try {
-      await fetch(`http://localhost:3000/projects/${activeProjectId}`, {
+      await fetch(`${backendUrl}/projects/${activeProjectId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(getProjectPayload(projectName))
       });
       alert('Project updated successfully!');
-      fetchData(); // refresh list in case name changed
+      fetchData();
     } catch (e) {
       alert('Failed to update project.');
     }
@@ -121,31 +133,18 @@ function App() {
 
   const handleLoadProject = async (id: number) => {
     try {
-      const res = await fetch(`http://localhost:3000/projects/${id}`);
+      const res = await fetch(`${backendUrl}/projects/${id}`);
       const data = await res.json();
-      if (data.polygonPoints) setPoints(JSON.parse(data.polygonPoints));
-      setBgImage(data.imageBase64 || null);
-      setImageTransform({
-        scale: data.imageScale || 1,
-        offsetX: data.imageOffsetX || 0,
-        offsetY: data.imageOffsetY || 0
-      });
-      if (data.cellModelId) setSelectedCellId(data.cellModelId);
-      setConfig({
-        series: data.seriesVoltage || 13,
-        parallel: data.parallelCount || 1,
-        useHolders: !!data.useHolders
-      });
-      setProjectName(data.name);
-      setActiveProjectId(data.id);
+      applyProjectData(data);
+      alert('Project loaded from DB.');
     } catch (e) {
-      alert('Failed to load project.');
+      alert('Failed to load project from database.');
     }
   };
 
   const handleDeleteProject = async (id: number) => {
     try {
-      await fetch(`http://localhost:3000/projects/${id}`, {
+      await fetch(`${backendUrl}/projects/${id}`, {
         method: 'DELETE'
       });
       alert('Project deleted.');
@@ -159,8 +158,70 @@ function App() {
     }
   };
 
+  // --- File Handlers ---
+  const handleExportToFile = () => {
+    const data = getProjectPayload(projectName);
+    const jsonStr = JSON.stringify(data, null, 2);
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${projectName.replace(/\s+/g, '_')}_ebike.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportFromFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const data = JSON.parse(ev.target?.result as string);
+        applyProjectData(data);
+        alert('Project imported from file successfully!');
+      } catch (err) {
+        alert('Failed to parse project file.');
+      }
+    };
+    reader.readAsText(file);
+    // Reset input value so same file can be selected again
+    e.target.value = '';
+  };
+
+  // Helper to apply loaded data
+  const applyProjectData = (data: any) => {
+    if (data.polygonPoints) setPoints(JSON.parse(data.polygonPoints));
+    setBgImage(data.imageBase64 || null);
+    setImageTransform({
+      scale: data.imageScale || 1,
+      offsetX: data.imageOffsetX || 0,
+      offsetY: data.imageOffsetY || 0
+    });
+    if (data.cellModelId) setSelectedCellId(data.cellModelId);
+    setConfig({
+      series: data.seriesVoltage || 13,
+      parallel: data.parallelCount || 1,
+      useHolders: !!data.useHolders
+    });
+    setProjectName(data.name || 'Imported pack');
+    setActiveProjectId(data.id || null);
+  };
+
   return (
     <div className="layout">
+      {/* Hidden input for file import */}
+      <input 
+        type="file" 
+        ref={fileInputRef} 
+        onChange={handleImportFromFile} 
+        style={{ display: 'none' }} 
+        accept=".json"
+      />
+
       <Sidebar 
         isSidebarOpen={isSidebarOpen}
         cells={cells}
@@ -180,6 +241,10 @@ function App() {
         onUpdateCurrent={handleUpdateCurrent}
         onLoadProject={handleLoadProject}
         onDeleteProject={handleDeleteProject}
+
+        isStandalone={isStandalone}
+        onExportFile={handleExportToFile}
+        onImportFile={() => fileInputRef.current?.click()}
       />
       <Workspace 
         isSidebarOpen={isSidebarOpen}
