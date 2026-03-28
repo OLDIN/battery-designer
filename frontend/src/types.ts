@@ -32,3 +32,5 @@ export interface ProjectData {
   id: number;
   name: string;
 }
+
+export type ViewMode = '2D' | '3D';

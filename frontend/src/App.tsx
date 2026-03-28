@@ -3,7 +3,8 @@ import toast, { Toaster } from 'react-hot-toast';
 import './index.css';
 import Sidebar from './components/Sidebar';
 import Workspace from './components/Workspace';
-import type { CellModel, Point, PackConfig, ImageTransform, ProjectData } from './types';
+import Scene3D from './components/Scene3D';
+import type { CellModel, Point, PackConfig, ImageTransform, ProjectData, ViewMode } from './types';
 import { FALLBACK_CELLS } from './data/fallbackCells';
 
 function App() {
@@ -14,6 +15,7 @@ function App() {
   const [projectName, setProjectName] = useState<string>('My Battery Pack');
   const [activeProjectId, setActiveProjectId] = useState<number | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
+  const [viewMode, setViewMode] = useState<ViewMode>('2D');
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -250,19 +252,44 @@ function App() {
         onExportFile={handleExportToFile}
         onImportFile={() => fileInputRef.current?.click()}
       />
-      <Workspace 
-        isSidebarOpen={isSidebarOpen}
-        setIsSidebarOpen={setIsSidebarOpen}
-        points={points}
-        setPoints={setPoints}
-        bgImage={bgImage}
-        setBgImage={setBgImage}
-        selectedCell={selectedCell}
-        config={config}
-        setFittedCellsCount={setFittedCellsCount}
-        imageTransform={imageTransform}
-        setImageTransform={setImageTransform}
-      />
+      {viewMode === '2D' ? (
+        <Workspace 
+          isSidebarOpen={isSidebarOpen}
+          setIsSidebarOpen={setIsSidebarOpen}
+          points={points}
+          setPoints={setPoints}
+          bgImage={bgImage}
+          setBgImage={setBgImage}
+          selectedCell={selectedCell}
+          config={config}
+          setFittedCellsCount={setFittedCellsCount}
+          imageTransform={imageTransform}
+          setImageTransform={setImageTransform}
+          setViewMode={setViewMode}
+        />
+      ) : (
+        <div style={{ flex: 1, position: 'relative' }}>
+          <Scene3D points={points} selectedCell={selectedCell} config={config} />
+          
+          {/* 3D Toolbar overlay */}
+          <div style={{ position: 'absolute', top: '20px', left: '20px', display: 'flex', gap: '10px' }}>
+            <button 
+              className="glass-panel" 
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', padding: 0 }}
+            >
+              ☰
+            </button>
+            <button 
+              className="glass-panel active"
+              onClick={() => setViewMode('2D')}
+              style={{ padding: '6px 15px', color: 'white', fontWeight: 'bold' }}
+            >
+              BACK TO 2D
+            </button>
+          </div>
+        </div>
+      )}
       
       <Toaster 
         position="top-right"

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import type { Point, CellModel, PackConfig, ImageTransform } from '../types';
-import { isCircleInPolygon } from './Math';
+import type { Point, CellModel, PackConfig, ImageTransform, ViewMode } from '../types';
+import { getFittedCells } from '../utils/fitting';
 
 interface WorkspaceProps {
   points: Point[];
@@ -14,12 +14,13 @@ interface WorkspaceProps {
   setImageTransform: React.Dispatch<React.SetStateAction<ImageTransform>>;
   isSidebarOpen: boolean;
   setIsSidebarOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  setViewMode: (mode: ViewMode) => void;
 }
 
 const Workspace: React.FC<WorkspaceProps> = ({
   points, setPoints, bgImage, setBgImage, selectedCell, config,
   setFittedCellsCount, imageTransform, setImageTransform,
-  isSidebarOpen, setIsSidebarOpen
+  isSidebarOpen, setIsSidebarOpen, setViewMode
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   
@@ -184,39 +185,8 @@ const Workspace: React.FC<WorkspaceProps> = ({
   };
 
   const fittedCells = useMemo(() => {
-    if (!selectedCell || points.length < 3) return [];
-
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    points.forEach(p => {
-      if (p.x < minX) minX = p.x;
-      if (p.x > maxX) maxX = p.x;
-      if (p.y < minY) minY = p.y;
-      if (p.y > maxY) maxY = p.y;
-    });
-
-    const gapMm = config.useHolders ? 1.5 : 0.5;
-    const cellDiameter = selectedCell.diameter + gapMm;
-    const radius = selectedCell.diameter / 2;
-    const padding = (gapMm / 2) + config.caseThickness;
-    const outerRadius = radius + padding;
-    
-    const colStep = cellDiameter;
-    const rowStep = cellDiameter * (Math.sqrt(3) / 2);
-
-    const result: Point[] = [];
-    let rowIdx = 0;
-    for (let y = minY; y <= maxY + rowStep; y += rowStep) {
-      const xOffset = (rowIdx % 2) * (colStep / 2);
-      for (let x = minX + xOffset; x <= maxX + colStep; x += colStep) {
-        const center = { x, y };
-        if (isCircleInPolygon(center, outerRadius, points)) {
-          result.push(center);
-        }
-      }
-      rowIdx++;
-    }
-    return result;
-  }, [points, selectedCell, config.useHolders, config.caseThickness]);
+    return getFittedCells(points, selectedCell, config);
+  }, [points, selectedCell, config]);
 
   useEffect(() => {
     setFittedCellsCount(fittedCells.length);
@@ -255,6 +225,13 @@ const Workspace: React.FC<WorkspaceProps> = ({
         </div>
         <div className="toolbar-group">
           <button className="glass-panel" onClick={addPoint}>Add Node</button>
+          <button 
+            className="glass-panel"
+            onClick={() => setViewMode('3D')}
+            style={{ padding: '6px 15px', color: 'var(--accent-color)', fontWeight: 'bold', marginLeft: 'auto' }}
+          >
+            VIEW IN 3D 🚀
+          </button>
         </div>
       </div>
 
