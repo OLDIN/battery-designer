@@ -2,11 +2,12 @@ import { useState, useEffect } from 'react';
 import './index.css';
 import Sidebar from './components/Sidebar';
 import Workspace from './components/Workspace';
-import type { CellModel, Point, PackConfig, ImageTransform } from './types';
+import type { CellModel, Point, PackConfig, ImageTransform, ProjectData } from './types';
 
 function App() {
   const [cells, setCells] = useState<CellModel[]>([]);
   const [selectedCellId, setSelectedCellId] = useState<number | null>(null);
+  const [savedProjects, setSavedProjects] = useState<ProjectData[]>([]);
   
   // Pack Configuration
   const [config, setConfig] = useState<PackConfig>({
@@ -15,7 +16,6 @@ function App() {
     useHolders: true
   });
 
-  // Calculate maximum parallel cells based on how many cells fit inside polygon
   const [maxParallel, setMaxParallel] = useState<number>(0);
 
   // Canvas State: 1 unit = 1 mm
@@ -33,25 +33,32 @@ function App() {
     offsetY: 0
   });
   
-  // Number of cells that physically fit inside the polygon
   const [fittedCellsCount, setFittedCellsCount] = useState<number>(0);
 
-  useEffect(() => {
-    // Fetch cells from backend
+  // Initial Fetch data
+  const fetchData = () => {
     fetch('http://localhost:3000/cells')
       .then(res => res.json())
       .then(data => {
         setCells(data);
-        if (data.length > 0) {
+        if (data.length > 0 && selectedCellId === null) {
           setSelectedCellId(data[0].id);
         }
       })
       .catch(err => console.error('Error fetching cells:', err));
+      
+    fetch('http://localhost:3000/projects')
+      .then(res => res.json())
+      .then(data => setSavedProjects(data))
+      .catch(err => console.error('Error fetching projects:', err));
+  };
+
+  useEffect(() => {
+    fetchData();
   }, []);
 
   const selectedCell = cells.find(c => c.id === selectedCellId) || null;
 
-  // Once fitted cells count changes, recalculate max parallel
   useEffect(() => {
     if (fittedCellsCount > 0 && config.series > 0) {
       const maxP = Math.floor(fittedCellsCount / config.series);
@@ -64,6 +71,54 @@ function App() {
     }
   }, [fittedCellsCount, config.series]);
 
+  const handleSaveProject = async (name: string) => {
+    try {
+      await fetch('http://localhost:3000/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          polygonPoints: JSON.stringify(points),
+          imageBase64: bgImage,
+          imageScale: imageTransform.scale,
+          imageOffsetX: imageTransform.offsetX,
+          imageOffsetY: imageTransform.offsetY,
+          cellModelId: selectedCellId,
+          useHolders: config.useHolders,
+          seriesVoltage: config.series,
+          parallelCount: config.parallel
+        })
+      });
+      alert('Project saved successfully!');
+      fetchData(); // refresh list
+    } catch (e) {
+      alert('Failed to save project.');
+    }
+  };
+
+  const handleLoadProject = async (id: number) => {
+    try {
+      const res = await fetch(`http://localhost:3000/projects/${id}`);
+      const data = await res.json();
+      if (data.polygonPoints) setPoints(JSON.parse(data.polygonPoints));
+      setBgImage(data.imageBase64 || null);
+      setImageTransform({
+        scale: data.imageScale || 1,
+        offsetX: data.imageOffsetX || 0,
+        offsetY: data.imageOffsetY || 0
+      });
+      if (data.cellModelId) setSelectedCellId(data.cellModelId);
+      setConfig({
+        series: data.seriesVoltage || 13,
+        parallel: data.parallelCount || 1,
+        useHolders: !!data.useHolders
+      });
+      alert('Project loaded successfully!');
+    } catch (e) {
+      alert('Failed to load project.');
+    }
+  };
+
   return (
     <div className="layout">
       <Sidebar 
@@ -75,6 +130,9 @@ function App() {
         maxParallel={maxParallel}
         fittedCellsCount={fittedCellsCount}
         imageTransform={imageTransform}
+        savedProjects={savedProjects}
+        onSaveProject={handleSaveProject}
+        onLoadProject={handleLoadProject}
       />
       <Workspace 
         points={points}

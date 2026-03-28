@@ -26,3 +26,8 @@ export interface ImageTransform {
   offsetX: number;
   offsetY: number;
 }
+
+export interface ProjectData {
+  id: number;
+  name: string;
+}

@@ -1,5 +1,5 @@
-import React from 'react';
-import type { CellModel, PackConfig, ImageTransform } from '../types';
+import React, { useState } from 'react';
+import type { CellModel, PackConfig, ImageTransform, ProjectData } from '../types';
 
 interface SidebarProps {
   cells: CellModel[];
@@ -10,12 +10,19 @@ interface SidebarProps {
   maxParallel: number;
   fittedCellsCount: number;
   imageTransform: ImageTransform;
+  savedProjects: ProjectData[];
+  onSaveProject: (name: string) => void;
+  onLoadProject: (id: number) => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
   cells, selectedCell, setSelectedCellId, config, setConfig,
-  maxParallel, fittedCellsCount, imageTransform
+  maxParallel, fittedCellsCount, imageTransform,
+  savedProjects, onSaveProject, onLoadProject
 }) => {
+  const [projectName, setProjectName] = useState('My Battery Pack');
+  const [selectedLoadId, setSelectedLoadId] = useState<string>('');
+
   return (
     <div className="sidebar glass-panel">
       <h2>Battery Designer</h2>
@@ -94,7 +101,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         </div>
       </div>
 
-      <div className="results-panel">
+      <div className="results-panel" style={{marginBottom: '20px'}}>
         <h3 style={{margin: '0 0 10px 0', fontSize: '14px', color: 'var(--text-muted)'}}>Pack Statistics</h3>
         
         <div className="result-row">
@@ -126,30 +133,56 @@ const Sidebar: React.FC<SidebarProps> = ({
             {selectedCell ? ((selectedCell.weight * (config.series * config.parallel)) / 1000).toFixed(2) : 0} kg
           </span>
         </div>
-
-        <button 
-          style={{marginTop: '16px', padding: '10px 0', fontSize: '15px'}}
-          onClick={() => {
-            fetch('http://localhost:3000/projects', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                name: 'New Pack ' + new Date().toLocaleTimeString(),
-                cellModelId: selectedCell?.id,
-                seriesVoltage: config.series,
-                parallelCount: config.parallel,
-                useHolders: config.useHolders,
-                imageScale: imageTransform.scale,
-                imageOffsetX: imageTransform.offsetX,
-                imageOffsetY: imageTransform.offsetY
-              })
-            }).then(() => alert('Project saved successfully!'))
-              .catch(() => alert('Failed to save project.'));
-          }}
-        >
-          Save Configuration
-        </button>
       </div>
+
+      {/* Project Management Section */}
+      <div className="sidebar-section project-management">
+        <h3>4. Project Management</h3>
+        
+        <div className="form-group">
+          <label>Project Name</label>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <input 
+              type="text" 
+              value={projectName} 
+              onChange={(e) => setProjectName(e.target.value)} 
+              className="glass-panel"
+              style={{ flex: 1, padding: '8px', border: '1px solid rgba(255,255,255,0.1)' }}
+            />
+            <button 
+              onClick={() => onSaveProject(projectName)}
+              style={{ padding: '8px 12px' }}
+            >
+              Save
+            </button>
+          </div>
+        </div>
+
+        <div className="form-group" style={{marginTop: '20px'}}>
+          <label>Load Project</label>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <select 
+              value={selectedLoadId} 
+              onChange={(e) => setSelectedLoadId(e.target.value)}
+              style={{ flex: 1 }}
+            >
+              <option value="" disabled>Select project...</option>
+              {savedProjects.map(p => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+            <button 
+              disabled={!selectedLoadId}
+              onClick={() => onLoadProject(Number(selectedLoadId))}
+              style={{ padding: '8px 12px' }}
+            >
+              Load
+            </button>
+          </div>
+        </div>
+
+      </div>
+
     </div>
   );
 };
