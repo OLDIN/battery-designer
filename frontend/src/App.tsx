@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import toast, { Toaster } from 'react-hot-toast';
 import './index.css';
 import Sidebar from './components/Sidebar';
 import Workspace from './components/Workspace';
@@ -109,10 +110,10 @@ function App() {
       });
       const newProj = await res.json();
       setActiveProjectId(newProj.id);
-      alert('Project saved as new successfully!');
+      toast.success('Project saved as new successfully!');
       fetchData();
     } catch (e) {
-      alert('Failed to save project to database.');
+      toast.error('Failed to save project to database.');
     }
   };
 
@@ -124,10 +125,10 @@ function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(getProjectPayload(projectName))
       });
-      alert('Project updated successfully!');
+      toast.success('Project updated successfully!');
       fetchData();
     } catch (e) {
-      alert('Failed to update project.');
+      toast.error('Failed to update project.');
     }
   };
 
@@ -136,9 +137,9 @@ function App() {
       const res = await fetch(`${backendUrl}/projects/${id}`);
       const data = await res.json();
       applyProjectData(data);
-      alert('Project loaded from DB.');
+      toast.success('Project loaded from DB.');
     } catch (e) {
-      alert('Failed to load project from database.');
+      toast.error('Failed to load project from database.');
     }
   };
 
@@ -147,14 +148,14 @@ function App() {
       await fetch(`${backendUrl}/projects/${id}`, {
         method: 'DELETE'
       });
-      alert('Project deleted.');
+      toast.success('Project deleted.');
       if (activeProjectId === id) {
         setActiveProjectId(null);
         setProjectName('My Battery Pack');
       }
       fetchData();
     } catch (e) {
-      alert('Failed to delete project.');
+      toast.error('Failed to delete project.');
     }
   };
 
@@ -182,9 +183,9 @@ function App() {
       try {
         const data = JSON.parse(ev.target?.result as string);
         applyProjectData(data);
-        alert('Project imported from file successfully!');
+        toast.success('Project imported from file successfully!');
       } catch (err) {
-        alert('Failed to parse project file.');
+        toast.error('Failed to parse project file.');
       }
     };
     reader.readAsText(file);
@@ -258,6 +259,31 @@ function App() {
         setFittedCellsCount={setFittedCellsCount}
         imageTransform={imageTransform}
         setImageTransform={setImageTransform}
+      />
+      
+      <Toaster 
+        position="top-right"
+        toastOptions={{
+          style: {
+            background: 'rgba(30, 41, 59, 0.8)',
+            color: '#fff',
+            backdropFilter: 'blur(10px)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            borderRadius: '12px',
+          },
+          success: {
+            iconTheme: {
+              primary: '#10b981',
+              secondary: '#fff',
+            },
+          },
+          error: {
+            iconTheme: {
+              primary: '#ef4444',
+              secondary: '#fff',
+            },
+          },
+        }}
       />
     </div>
   );
