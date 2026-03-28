@@ -26,6 +26,7 @@ const Workspace: React.FC<WorkspaceProps> = ({
   // Panning/Zooming Modes
   const [isPhotoLocked, setIsPhotoLocked] = useState<boolean>(true);
   const [isPanning, setIsPanning] = useState<boolean>(false);
+  const [isDraggingPolygon, setIsDraggingPolygon] = useState<boolean>(false);
   const [panStartClient, setPanStartClient] = useState<Point | null>(null);
 
   const [camera, setCamera] = useState({ x: 0, y: 0, scale: 1 });
@@ -81,6 +82,15 @@ const Workspace: React.FC<WorkspaceProps> = ({
           newPoints[draggingPoint] = logicalPt;
           return newPoints;
         });
+      } else if (isDraggingPolygon && panStartClient) {
+        const dx = clientPt.x - panStartClient.x;
+        const dy = clientPt.y - panStartClient.y;
+        
+        const logicalDx = dx / camera.scale;
+        const logicalDy = dy / camera.scale;
+
+        setPoints(prev => prev.map(p => ({ x: p.x + logicalDx, y: p.y + logicalDy })));
+        setPanStartClient(clientPt);
       } else if (isPanning && panStartClient) {
         const dx = clientPt.x - panStartClient.x;
         const dy = clientPt.y - panStartClient.y;
@@ -104,6 +114,7 @@ const Workspace: React.FC<WorkspaceProps> = ({
     
     const handlePointerUp = () => {
       setDraggingPoint(null);
+      setIsDraggingPolygon(false);
       setIsPanning(false);
       setPanStartClient(null);
     };
@@ -119,7 +130,7 @@ const Workspace: React.FC<WorkspaceProps> = ({
       window.removeEventListener('touchmove', handlePointerMove);
       window.removeEventListener('touchend', handlePointerUp);
     };
-  }, [draggingPoint, isPanning, panStartClient, camera, isPhotoLocked, setPoints, setImageTransform]);
+  }, [draggingPoint, isDraggingPolygon, isPanning, panStartClient, camera, isPhotoLocked, setPoints, setImageTransform]);
 
   const handleWheel = (e: React.WheelEvent) => {
     const clientPt = getClientPt(e);
@@ -274,10 +285,16 @@ const Workspace: React.FC<WorkspaceProps> = ({
 
           <path 
             d={polygonPath} 
-            fill="rgba(59, 130, 246, 0.1)" 
+            fill="rgba(59, 130, 246, 0.15)" 
             stroke="var(--accent-color)" 
             strokeWidth="2" 
-            pointerEvents="none"
+            style={{ cursor: 'move', pointerEvents: 'all' }}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              setIsDraggingPolygon(true);
+              const pt = getClientPt(e);
+              if (pt) setPanStartClient(pt);
+            }}
           />
 
           {selectedCell && renderedCells.map((cell, idx) => (
