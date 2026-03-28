@@ -135,38 +135,85 @@ const Scene3D: React.FC<Scene3DProps> = ({ points, selectedCell, config }) => {
     
     // Sort all cells to have a stable starting point (top-to-bottom, left-to-right)
     const available = [...rawCells].sort((a, b) => (a.y - b.y) || (a.x - b.x));
-    const processed: Point[] = [];
+    const cellDiameter = selectedCell?.diameter || 18;
+    const neighborThreshold = cellDiameter * 1.3; // threshold for being physical neighbors
+
     const groups: Point[][] = [];
     const pSize = config.parallel;
-    
-    // Spatial Clustering: Seed-and-Expand
-    while (available.length > 0) {
-      const seed = available.shift()!;
-      const group: Point[] = [seed];
-      
-      // Find P-1 nearest unassigned neighbors for this group
-      while (group.length < pSize && available.length > 0) {
-        let bestIdx = 0;
-        let minDist = Infinity;
-        
-        // Use average group center for better compactness
-        const center = {
-          x: group.reduce((sum, c) => sum + c.x, 0) / group.length,
-          y: group.reduce((sum, c) => sum + c.y, 0) / group.length
-        };
+    const totalNeeded = config.series * config.parallel;
+    const assigned = new Set<number>();
 
-        available.forEach((c, idx) => {
-          const d = Math.sqrt(Math.pow(c.x - center.x, 2) + Math.pow(c.y - center.y, 2));
-          if (d < minDist) {
-            minDist = d;
-            bestIdx = idx;
+    // 1. Contiguous Clustering (BFS-style)
+    while (assigned.size < Math.min(rawCells.length, totalNeeded)) {
+      // Find the first unassigned seed (closest to the top)
+      let seedIdx = -1;
+      for (let i = 0; i < available.length; i++) {
+        const originalIdx = rawCells.indexOf(available[i]);
+        if (!assigned.has(originalIdx)) {
+          seedIdx = originalIdx;
+          break;
+        }
+      }
+      if (seedIdx === -1) break;
+
+      const group: Point[] = [rawCells[seedIdx]];
+      assigned.add(seedIdx);
+      
+      const queue: number[] = [seedIdx];
+      
+      // Keep expanding the "blob" until it reaches pSize
+      while (group.length < pSize && queue.length > 0) {
+        const current = queue.shift()!;
+        const c1 = rawCells[current];
+
+        // Find unassigned neighbors of the current cell
+        const neighbors: { idx: number, dist: number }[] = [];
+        rawCells.forEach((c2, idx2) => {
+          if (!assigned.has(idx2)) {
+            const d = Math.sqrt(Math.pow(c1.x - c2.x, 2) + Math.pow(c1.y - c2.y, 2));
+            if (d < neighborThreshold) {
+              neighbors.push({ idx: idx2, dist: d });
+            }
           }
         });
-        
-        group.push(available.splice(bestIdx, 1)[0]);
+
+        // Sort neighbors by distance and add to group
+        neighbors.sort((a,b) => a.dist - b.dist);
+        for (const n of neighbors) {
+          if (group.length < pSize) {
+            group.push(rawCells[n.idx]);
+            assigned.add(n.idx);
+            queue.push(n.idx);
+          } else break;
+        }
       }
+
+      // If group is still smaller than pSize but no neighbors, force-pick the closest (fallback)
+      while (group.length < pSize && assigned.size < rawCells.length) {
+          let bestIdx = -1;
+          let minDist = Infinity;
+          const gCenter = {
+            x: group.reduce((sum, c) => sum + c.x, 0) / group.length,
+            y: group.reduce((sum, c) => sum + c.y, 0) / group.length
+          };
+
+          rawCells.forEach((check, idx) => {
+            if (!assigned.has(idx)) {
+              const d = Math.sqrt(Math.pow(check.x - gCenter.x, 2) + Math.pow(check.y - gCenter.y, 2));
+              if (d < minDist) {
+                minDist = d;
+                bestIdx = idx;
+              }
+            }
+          });
+
+          if (bestIdx !== -1) {
+            group.push(rawCells[bestIdx]);
+            assigned.add(bestIdx);
+          } else break;
+      }
+
       groups.push(group);
-      processed.push(...group);
     }
     
     // 2. Sequence Groups (Greedy Pathfinding S1 -> S2 -> ...)
