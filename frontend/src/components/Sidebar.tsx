@@ -10,17 +10,22 @@ interface SidebarProps {
   maxParallel: number;
   fittedCellsCount: number;
   imageTransform: ImageTransform;
+  
   savedProjects: ProjectData[];
-  onSaveProject: (name: string) => void;
+  projectName: string;
+  setProjectName: (name: string) => void;
+  activeProjectId: number | null;
+  onSaveAsNew: () => void;
+  onUpdateCurrent: () => void;
   onLoadProject: (id: number) => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
   cells, selectedCell, setSelectedCellId, config, setConfig,
   maxParallel, fittedCellsCount, imageTransform,
-  savedProjects, onSaveProject, onLoadProject
+  savedProjects, projectName, setProjectName, activeProjectId, 
+  onSaveAsNew, onUpdateCurrent, onLoadProject
 }) => {
-  const [projectName, setProjectName] = useState('My Battery Pack');
   const [selectedLoadId, setSelectedLoadId] = useState<string>('');
 
   return (
@@ -137,24 +142,36 @@ const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Project Management Section */}
       <div className="sidebar-section project-management">
-        <h3>4. Project Management</h3>
+        <h3 style={{display:'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+          4. Project Management
+          {activeProjectId && <span style={{fontSize:'10px', color: '#10b981', background: 'rgba(16, 185, 129, 0.2)', padding:'2px 6px', borderRadius:'10px'}}>Active</span>}
+        </h3>
         
         <div className="form-group">
           <label>Project Name</label>
+          <input 
+            type="text" 
+            value={projectName} 
+            onChange={(e) => setProjectName(e.target.value)} 
+            className="glass-panel"
+            style={{ width: '100%', padding: '8px', border: '1px solid rgba(255,255,255,0.1)', marginBottom: '8px', boxSizing: 'border-box' }}
+          />
+
           <div style={{ display: 'flex', gap: '8px' }}>
-            <input 
-              type="text" 
-              value={projectName} 
-              onChange={(e) => setProjectName(e.target.value)} 
-              className="glass-panel"
-              style={{ flex: 1, padding: '8px', border: '1px solid rgba(255,255,255,0.1)' }}
-            />
             <button 
-              onClick={() => onSaveProject(projectName)}
-              style={{ padding: '8px 12px' }}
+              onClick={onSaveAsNew}
+              style={{ flex: 1, padding: '8px', fontSize: '12px' }}
             >
-              Save
+              Save as New
             </button>
+            {activeProjectId && (
+              <button 
+                onClick={onUpdateCurrent}
+                style={{ flex: 1, padding: '8px', fontSize: '12px', background: 'rgba(59, 130, 246, 0.4)', border: '1px solid #3b82f6' }}
+              >
+                Update
+              </button>
+            )}
           </div>
         </div>
 

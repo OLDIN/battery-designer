@@ -9,6 +9,9 @@ function App() {
   const [selectedCellId, setSelectedCellId] = useState<number | null>(null);
   const [savedProjects, setSavedProjects] = useState<ProjectData[]>([]);
   
+  const [projectName, setProjectName] = useState<string>('My Battery Pack');
+  const [activeProjectId, setActiveProjectId] = useState<number | null>(null);
+  
   // Pack Configuration
   const [config, setConfig] = useState<PackConfig>({
     series: 13,
@@ -71,28 +74,47 @@ function App() {
     }
   }, [fittedCellsCount, config.series]);
 
-  const handleSaveProject = async (name: string) => {
+  const getProjectPayload = (name: string) => ({
+    name,
+    polygonPoints: JSON.stringify(points),
+    imageBase64: bgImage,
+    imageScale: imageTransform.scale,
+    imageOffsetX: imageTransform.offsetX,
+    imageOffsetY: imageTransform.offsetY,
+    cellModelId: selectedCellId,
+    useHolders: config.useHolders,
+    seriesVoltage: config.series,
+    parallelCount: config.parallel
+  });
+
+  const handleSaveAsNew = async () => {
     try {
-      await fetch('http://localhost:3000/projects', {
+      const res = await fetch('http://localhost:3000/projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name,
-          polygonPoints: JSON.stringify(points),
-          imageBase64: bgImage,
-          imageScale: imageTransform.scale,
-          imageOffsetX: imageTransform.offsetX,
-          imageOffsetY: imageTransform.offsetY,
-          cellModelId: selectedCellId,
-          useHolders: config.useHolders,
-          seriesVoltage: config.series,
-          parallelCount: config.parallel
-        })
+        body: JSON.stringify(getProjectPayload(projectName))
       });
-      alert('Project saved successfully!');
+      const newProj = await res.json();
+      setActiveProjectId(newProj.id);
+      alert('Project saved as new successfully!');
       fetchData(); // refresh list
     } catch (e) {
       alert('Failed to save project.');
+    }
+  };
+
+  const handleUpdateCurrent = async () => {
+    if (!activeProjectId) return;
+    try {
+      await fetch(`http://localhost:3000/projects/${activeProjectId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(getProjectPayload(projectName))
+      });
+      alert('Project updated successfully!');
+      fetchData(); // refresh list in case name changed
+    } catch (e) {
+      alert('Failed to update project.');
     }
   };
 
@@ -113,7 +135,8 @@ function App() {
         parallel: data.parallelCount || 1,
         useHolders: !!data.useHolders
       });
-      alert('Project loaded successfully!');
+      setProjectName(data.name);
+      setActiveProjectId(data.id);
     } catch (e) {
       alert('Failed to load project.');
     }
@@ -130,8 +153,13 @@ function App() {
         maxParallel={maxParallel}
         fittedCellsCount={fittedCellsCount}
         imageTransform={imageTransform}
+        
         savedProjects={savedProjects}
-        onSaveProject={handleSaveProject}
+        projectName={projectName}
+        setProjectName={setProjectName}
+        activeProjectId={activeProjectId}
+        onSaveAsNew={handleSaveAsNew}
+        onUpdateCurrent={handleUpdateCurrent}
         onLoadProject={handleLoadProject}
       />
       <Workspace 
