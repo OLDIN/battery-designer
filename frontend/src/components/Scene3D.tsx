@@ -77,12 +77,9 @@ const FrameOutline = ({ points }: { points: Point[] }) => {
   );
 };
 
-// Ground plane
+// Ground plane (grid only)
 const Ground = () => (
-  <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
-    <planeGeometry args={[5000, 5000]} />
-    <meshStandardMaterial color="#0f172a" transparent opacity={0.8} />
-  </mesh>
+  <gridHelper args={[2000, 40, '#334155', '#1e293b']} position={[0, 0, 0]} />
 );
 
 // A premium-look nickel connection (thick metallic bar)
@@ -327,8 +324,10 @@ const Scene3D: React.FC<Scene3DProps> = ({ points, selectedCell, config }) => {
     return Math.max(maxX - minX, maxY - minY) * 1.2;
   }, [points]);
 
+  const liftHeight = 1000; // Height to float the battery above the ground
+  
   // Stable target for OrbitControls
-  const cameraTarget = useMemo(() => [center.x, cellHeight / 2, center.z] as [number, number, number], [center.x, center.z, cellHeight]);
+  const cameraTarget = useMemo(() => [center.x, cellHeight / 2 + liftHeight, center.z] as [number, number, number], [center.x, center.z, cellHeight]);
 
   return (
     <div style={{ width: '100%', height: '100%', background: '#0f172a', position: 'relative' }}>
@@ -349,9 +348,14 @@ const Scene3D: React.FC<Scene3DProps> = ({ points, selectedCell, config }) => {
           enablePan={true}
         />
         
-        <ambientLight intensity={0.6} />
+        <ambientLight intensity={0.7} />
+        {/* Top lights */}
         <directionalLight position={[500, 800, 300]} intensity={1.5} castShadow />
         <directionalLight position={[-300, 400, -200]} intensity={0.5} />
+        
+        {/* Bottom lights to illuminate the underside */}
+        <directionalLight position={[500, -800, 300]} intensity={1.5} />
+        <directionalLight position={[-300, -400, -200]} intensity={0.5} />
         
         <Environment preset="city" />
         
@@ -360,7 +364,8 @@ const Scene3D: React.FC<Scene3DProps> = ({ points, selectedCell, config }) => {
         {/* Frame outline on the ground */}
         <FrameOutline points={points} />
         
-        {/* Battery cells — spatially clustered blocks */}
+        <group position={[0, liftHeight, 0]}>
+          {/* Battery cells — spatially clustered blocks */}
         {groupedCells.map((group, gIdx) => {
           const isFlipped = gIdx % 2 === 1;
           
@@ -459,6 +464,7 @@ const Scene3D: React.FC<Scene3DProps> = ({ points, selectedCell, config }) => {
             {seriesConnectionElements}
           </>
         )}
+        </group>
       </Canvas>
       
       <div style={{ 
