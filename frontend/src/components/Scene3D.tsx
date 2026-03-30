@@ -266,7 +266,7 @@ const Scene3D: React.FC<Scene3DProps> = ({ points, selectedCell, config }) => {
     if (groupedCells.length < 2) return { seriesConnectionElements: [] };
     
     const topY = cellHeight + 1;
-    const botY = 1;
+    const botY = -0.6; // lowered to sit outside the bottom cap of the cell
 
     for (let g = 0; g < groupedCells.length; g++) {
       const isFlipped = g % 2 === 1;
@@ -396,8 +396,8 @@ const Scene3D: React.FC<Scene3DProps> = ({ points, selectedCell, config }) => {
           <>
             {groupedCells.map((group, g) => {
               const isFlipped = g % 2 === 1;
-              const posSideY = isFlipped ? 1 : cellHeight + 1;
-              const negSideY = isFlipped ? cellHeight + 1 : 1;
+              const posSideY = isFlipped ? -0.6 : cellHeight + 1;
+              const negSideY = isFlipped ? cellHeight + 1 : -0.6;
               
               if (g * config.parallel >= usedCount) return null;
               
